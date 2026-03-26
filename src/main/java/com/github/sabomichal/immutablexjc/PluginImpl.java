@@ -43,6 +43,7 @@ public final class PluginImpl extends Plugin {
     private static final String NOFINALCLASSES_OPTION_NAME = "-Ximm-nofinalclasses";
 
     private static final String PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME = "-Ximm-pubstandardconstructor";
+    private static final String FLUENT_API_OPTION_NAME = "-Ximm-fluentapi";
 
     private static final String UNSET_PREFIX = "unset";
     private static final String SET_PREFIX = "set";
@@ -63,6 +64,7 @@ public final class PluginImpl extends Plugin {
     private boolean optionalGetter;
     private boolean noFinalClasses;
     private boolean standardConstructorPublic;
+    private boolean createFluentApi;
     private Options options;
 
     @Override
@@ -140,6 +142,10 @@ public final class PluginImpl extends Plugin {
                     }
                 }
             }
+
+            if (createFluentApi) {
+                addFluentApi(implClass, declaredFields);
+            }
         }
 
         // if superclass is a JAXB bound class or an abstract class, revert setting it final
@@ -179,6 +185,7 @@ public final class PluginImpl extends Plugin {
         appendOption(retval, OPTIONAL_GETTER_OPTION_NAME, getMessage("optionalGetterUsage"), n, maxOptionLength);
         appendOption(retval, NOFINALCLASSES_OPTION_NAME, getMessage("noFinalClassesUsage"), n, maxOptionLength);
         appendOption(retval, PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME, getMessage("pubStandardConstructorUsage"), n, maxOptionLength);
+        appendOption(retval, FLUENT_API_OPTION_NAME, getMessage("fluentApiUsage"), n, maxOptionLength);
         return retval.toString();
     }
 
@@ -240,6 +247,10 @@ public final class PluginImpl extends Plugin {
         }
         if (args[i].startsWith(PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME)) {
             this.standardConstructorPublic = true;
+            return 1;
+        }
+        if (args[i].startsWith(FLUENT_API_OPTION_NAME)) {
+            this.createFluentApi = true;
             return 1;
         }
         return 0;
@@ -821,6 +832,29 @@ public final class PluginImpl extends Plugin {
             }
         }
         return ctor;
+    }
+
+    private void addFluentApi(JDefinedClass implClass, JFieldVar[] declaredFields) {
+        for (JFieldVar field : declaredFields) {
+            String fieldName = StringUtils.capitalize(field.name());
+            JMethod method = implClass.method(JMod.PUBLIC, implClass, "with" + fieldName);
+            JVar param = generateMethodParameter(method, field);
+            method.body().
+                    _if(param.eq(JExpr.refthis(field.name())))
+                    ._then()._return(JExpr._this());
+            if (isCollection(field)) {
+                method.body().assign(param, getUnmodifiableWrappedExpression(implClass.owner(), param));
+            }
+            JInvocation constructorInvocation = JExpr._new(implClass);
+            for (JFieldVar other : declaredFields) {
+                if (other == field) {
+                    constructorInvocation.arg(param);
+                } else {
+                    constructorInvocation.arg(JExpr.refthis(other.name()));
+                }
+            }
+            method.body()._return(constructorInvocation);
+        }
     }
 
     private boolean hasSuperClass(final JDefinedClass builderClass) {
