@@ -42,6 +42,8 @@ public final class PluginImpl extends Plugin {
     private static final String OPTIONAL_GETTER_OPTION_NAME = "-Ximm-optionalgetter";
     private static final String NOFINALCLASSES_OPTION_NAME = "-Ximm-nofinalclasses";
 
+    private static final String PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME = "-Ximm-pubstandardconstructor";
+
     private static final String UNSET_PREFIX = "unset";
     private static final String SET_PREFIX = "set";
     private static final String MESSAGE_PREFIX = "IMMUTABLE-XJC";
@@ -60,6 +62,7 @@ public final class PluginImpl extends Plugin {
     private boolean useSimpleBuilderName;
     private boolean optionalGetter;
     private boolean noFinalClasses;
+    private boolean standardConstructorPublic;
     private Options options;
 
     @Override
@@ -175,6 +178,7 @@ public final class PluginImpl extends Plugin {
         appendOption(retval, CONSTRUCTORDEFAULTS_OPTION_NAME, getMessage("setDefaultValuesInConstructor"), n, maxOptionLength);
         appendOption(retval, OPTIONAL_GETTER_OPTION_NAME, getMessage("optionalGetterUsage"), n, maxOptionLength);
         appendOption(retval, NOFINALCLASSES_OPTION_NAME, getMessage("noFinalClassesUsage"), n, maxOptionLength);
+        appendOption(retval, PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME, getMessage("pubStandardConstructorUsage"), n, maxOptionLength);
         return retval.toString();
     }
 
@@ -232,6 +236,10 @@ public final class PluginImpl extends Plugin {
         }
         if (args[i].startsWith(NOFINALCLASSES_OPTION_NAME)) {
             this.noFinalClasses = true;
+            return 1;
+        }
+        if (args[i].startsWith(PUBLIC_STANDARD_CONSTRUCTOR_OPTION_NAME)) {
+            this.standardConstructorPublic = true;
             return 1;
         }
         return 0;
@@ -754,7 +762,8 @@ public final class PluginImpl extends Plugin {
     }
 
     private JMethod generateStandardConstructor(final JDefinedClass clazz, JFieldVar[] declaredFields, JFieldVar[] superclassFields) {
-        final JMethod ctor = createConstructor(clazz, JMod.PROTECTED);
+        int mod = standardConstructorPublic ? JMod.PUBLIC : JMod.PROTECTED;
+        final JMethod ctor = createConstructor(clazz, mod);
         ctor.javadoc().add("Used by JAX-B");
         if (superclassFields.length > 0) {
             JInvocation superInvocation = ctor.body().invoke("super");
