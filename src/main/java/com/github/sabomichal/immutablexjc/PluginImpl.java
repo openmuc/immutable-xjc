@@ -73,6 +73,7 @@ public final class PluginImpl extends Plugin {
         this.options = options;
 
         this.log(Level.INFO, "title");
+        System.err.println("Hello from immutable-xjc! all your generated classes will be nice :)");
 
         List<? extends ClassOutline> classes = new ArrayList<ClassOutline>(model.getClasses());
         if (builderInheritance) {
